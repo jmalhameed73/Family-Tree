@@ -1,129 +1,126 @@
-import { useState, useEffect, useCallback } from 'react';
-import * as neon from '@/lib/neon';
 import type { Member } from '@/types';
 
-interface UseNeonReturn {
-  members: Member[];
-  loading: boolean;
-  error: string | null;
-  addMember: (name: string, notes: string, fatherId: string | null) => Promise<void>;
-  updateMember: (id: string, name: string, notes: string) => Promise<void>;
-  deleteMember: (id: string) => Promise<void>;
-  clearAll: () => Promise<void>;
-  importData: (members: Member[]) => Promise<void>;
-  exportData: () => Promise<Member[]>;
-  refresh: () => Promise<void>;
+// استخدام API Routes بدلاً من الاتصال المباشر بقاعدة البيانات
+const API_URL = '/api/members';
+
+// جلب جميع الأعضاء
+export async function fetchAllMembers(): Promise<Member[]> {
+  try {
+    const response = await fetch(API_URL);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch members: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching members:', error);
+    throw error;
+  }
 }
 
-export function useNeon(): UseNeonReturn {
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // جلب البيانات
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await neon.fetchAllMembers();
-      setMembers(data);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'حدث خطأ في جلب البيانات';
-      setError(errorMessage);
-      console.error('Error fetching members:', err);
-    } finally {
-      setLoading(false);
+// إضافة عضو جديد
+export async function addMember(
+  id: string,
+  name: string,
+  notes: string,
+  father_id: string | null,
+  created_at: number
+): Promise<void> {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id, name, notes, father_id, created_at }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to add member: ${response.status}`);
     }
-  }, []);
+  } catch (error) {
+    console.error('Error adding member:', error);
+    throw error;
+  }
+}
 
-  // إضافة عضو
-  const addMember = useCallback(async (name: string, notes: string, fatherId: string | null) => {
-    try {
-      const id = neon.createId();
-      const createdAt = Date.now();
-      await neon.addMember(id, name, notes, fatherId, createdAt);
-      await fetchData();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'حدث خطأ في إضافة العضو';
-      setError(errorMessage);
-      throw err;
+// تحديث عضو
+export async function updateMember(id: string, name: string, notes: string): Promise<void> {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id, name, notes }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to update member: ${response.status}`);
     }
-  }, [fetchData]);
+  } catch (error) {
+    console.error('Error updating member:', error);
+    throw error;
+  }
+}
 
-  // تحديث عضو
-  const updateMember = useCallback(async (id: string, name: string, notes: string) => {
-    try {
-      await neon.updateMember(id, name, notes);
-      await fetchData();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'حدث خطأ في تحديث العضو';
-      setError(errorMessage);
-      throw err;
+// حذف عضو
+export async function deleteMember(id: string): Promise<void> {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to delete member: ${response.status}`);
     }
-  }, [fetchData]);
+  } catch (error) {
+    console.error('Error deleting member:', error);
+    throw error;
+  }
+}
 
-  // حذف عضو
-  const deleteMember = useCallback(async (id: string) => {
-    try {
-      await neon.deleteMember(id);
-      await fetchData();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'حدث خطأ في حذف العضو';
-      setError(errorMessage);
-      throw err;
+// حذف جميع الأعضاء
+export async function clearAllMembers(): Promise<void> {
+  try {
+    const members = await fetchAllMembers();
+    for (const member of members) {
+      await deleteMember(member.id);
     }
-  }, [fetchData]);
+  } catch (error) {
+    console.error('Error clearing members:', error);
+    throw error;
+  }
+}
 
-  // مسح جميع البيانات
-  const clearAll = useCallback(async () => {
-    try {
-      await neon.clearAllMembers();
-      await fetchData();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'حدث خطأ في مسح البيانات';
-      setError(errorMessage);
-      throw err;
+// استيراد بيانات
+export async function importMembers(members: Member[]): Promise<void> {
+  try {
+    // حذف جميع الأعضاء أولاً
+    await clearAllMembers();
+    
+    // إضافة الأعضاء الجدد
+    for (const member of members) {
+      await addMember(
+        member.id,
+        member.name,
+        member.notes || '',
+        member.father_id || null,
+        member.created_at
+      );
     }
-  }, [fetchData]);
+  } catch (error) {
+    console.error('Error importing members:', error);
+    throw error;
+  }
+}
 
-  // استيراد بيانات
-  const importData = useCallback(async (importedMembers: Member[]) => {
-    try {
-      await neon.importMembers(importedMembers);
-      await fetchData();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'حدث خطأ في استيراد البيانات';
-      setError(errorMessage);
-      throw err;
-    }
-  }, [fetchData]);
+// تصدير بيانات
+export async function exportMembers(): Promise<Member[]> {
+  return await fetchAllMembers();
+}
 
-  // تصدير بيانات
-  const exportData = useCallback(async () => {
-    try {
-      return await neon.exportMembers();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'حدث خطأ في تصدير البيانات';
-      setError(errorMessage);
-      throw err;
-    }
-  }, []);
-
-  // تحميل البيانات عند التحميل الأول
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return {
-    members,
-    loading,
-    error,
-    addMember,
-    updateMember,
-    deleteMember,
-    clearAll,
-    importData,
-    exportData,
-    refresh: fetchData,
-  };
+// إنشاء معرف فريد
+export function createId(): string {
+  return `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
