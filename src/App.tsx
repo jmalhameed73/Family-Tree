@@ -6,6 +6,7 @@ import { Settings } from '@/components/Settings';
 import { EditAuthModal } from '@/components/EditAuthModal';
 import { useNeon } from '@/hooks/useNeon';
 import { canEdit, logoutEdit } from '@/lib/auth';
+import { useSettings } from '@/context/SettingsContext';
 import type { Member } from '@/types';
 
 type Tab = 'tree' | 'settings';
@@ -25,6 +26,7 @@ function App() {
     refresh,
   } = useNeon();
 
+  const { cardSize, setCardSize } = useSettings();
   const [hasEditPermission, setHasEditPermission] = useState(canEdit());
   const [tab, setTab] = useState<Tab>('tree');
   const [query, setQuery] = useState('');
@@ -37,7 +39,6 @@ function App() {
 
   const isEmpty = members.length === 0;
 
-  // التحقق من صلاحية التعديل عند تحميل الصفحة
   useEffect(() => {
     setHasEditPermission(canEdit());
   }, []);
@@ -168,7 +169,6 @@ function App() {
 
   const memberCount = members.length;
 
-  // إذا كان التحميل
   if (loading) {
     return (
       <div className="app-shell flex h-[100dvh] items-center justify-center bg-white">
@@ -180,7 +180,6 @@ function App() {
     );
   }
 
-  // إذا كان هناك خطأ
   if (error) {
     return (
       <div className="app-shell flex h-[100dvh] items-center justify-center bg-white px-6">
@@ -210,7 +209,39 @@ function App() {
             </span>
             شجرة العائلة
           </h1>
+          
           <div className="flex items-center gap-2">
+            {/* أزرار التحكم بالحجم */}
+            <div className="flex items-center gap-0.5 bg-slate-100 rounded-lg p-0.5">
+              <button
+                onClick={() => setCardSize('small')}
+                className={`px-2 py-1 rounded text-[10px] font-bold transition ${
+                  cardSize === 'small' ? 'bg-white text-sky-600 shadow' : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="حجم صغير"
+              >
+                ص
+              </button>
+              <button
+                onClick={() => setCardSize('medium')}
+                className={`px-2 py-1 rounded text-xs font-bold transition ${
+                  cardSize === 'medium' ? 'bg-white text-sky-600 shadow' : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="حجم متوسط"
+              >
+                م
+              </button>
+              <button
+                onClick={() => setCardSize('large')}
+                className={`px-2 py-1 rounded text-sm font-bold transition ${
+                  cardSize === 'large' ? 'bg-white text-sky-600 shadow' : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="حجم كبير"
+              >
+                ك
+              </button>
+            </div>
+
             {/* زر تفعيل/إلغاء التعديل */}
             {hasEditPermission ? (
               <button

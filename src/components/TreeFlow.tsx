@@ -15,6 +15,7 @@ import 'reactflow/dist/style.css';
 import { ZoomIn, ZoomOut, RotateCcw, Move } from 'lucide-react';
 import type { Member } from '@/types';
 import { childrenOf } from '@/lib/tree';
+import { useSettings, type CardSize } from '@/context/SettingsContext';
 
 interface TreeFlowProps {
   members: Member[];
@@ -24,24 +25,72 @@ interface TreeFlowProps {
 
 // ألوان لكل جيل
 const GEN_COLORS = [
-  '#0ea5e9', // sky
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#f43f5e', // rose
-  '#8b5cf6', // violet
+  '#0ea5e9',
+  '#10b981',
+  '#f59e0b',
+  '#f43f5e',
+  '#8b5cf6',
 ];
+
+// دوال مساعدة للحجم
+const getCardSizeClass = (size: CardSize): string => {
+  switch (size) {
+    case 'small': return 'px-2 py-1.5 min-w-[60px] text-xs';
+    case 'large': return 'px-4 py-2.5 min-w-[100px] text-base';
+    default: return 'px-3 py-2 min-w-[80px] text-sm';
+  }
+};
+
+const getAvatarClass = (size: CardSize): string => {
+  switch (size) {
+    case 'small': return 'w-6 h-6 text-xs';
+    case 'large': return 'w-10 h-10 text-base';
+    default: return 'w-8 h-8 text-sm';
+  }
+};
+
+const getBadgeClass = (size: CardSize): string => {
+  switch (size) {
+    case 'small': return 'text-[8px] px-1 py-0.5';
+    case 'large': return 'text-xs px-2 py-0.5';
+    default: return 'text-[10px] px-1.5 py-0.5';
+  }
+};
+
+const getNotesClass = (size: CardSize): string => {
+  switch (size) {
+    case 'small': return 'text-[8px]';
+    case 'large': return 'text-xs';
+    default: return 'text-[10px]';
+  }
+};
+
+// دالة البحث في الشجرة الفرعية
+function subtreeHasMatch(rootId: string, members: Member[], q: string): boolean {
+  if (!q) return true;
+  const stack = [rootId];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    const node = members.find((m) => m.id === cur);
+    if (node && node.name.toLowerCase().includes(q)) return true;
+    members
+      .filter((m) => m.father_id === cur)
+      .forEach((m) => stack.push(m.id));
+  }
+  return false;
+}
 
 // مكون الشجرة الداخلي
 function TreeFlowInner({ members, query, onAction }: TreeFlowProps) {
   const reactFlow = useReactFlow();
   const q = query.trim().toLowerCase();
+  const { cardSize } = useSettings();
 
-  // بناء العقد
+  // بناء العقد مع دعم الترتيب
   const nodes: Node[] = useMemo(() => {
     const result: Node[] = [];
     const byId = new Map(members.map((m) => [m.id, m]));
     
-    // حساب الجيل
     const getGen = (id: string): number => {
       let gen = 0;
       let current = byId.get(id);
@@ -52,7 +101,6 @@ function TreeFlowInner({ members, query, onAction }: TreeFlowProps) {
       return gen;
     };
 
-    // حساب موقع العقد
     const positions = new Map<string, { x: number; y: number }>();
     
     const getDepth = (id: string): number => {
@@ -61,9 +109,19 @@ function TreeFlowInner({ members, query, onAction }: TreeFlowProps) {
       return 1 + Math.max(...children.map(c => getDepth(c.id)));
     };
 
+    // ترتيب الأبناء حسب `order` أو `created_at`
+    const getChildren = (id: string) => {
+      return childrenOf(members, id).sort((a, b) => {
+        if (a.order !== undefined && b.order !== undefined) {
+          return a.order - b.order;
+        }
+        return a.created_at - b.created_at;
+      });
+    };
+
     const placeNodes = (id: string, x: number, y: number, spacing: number) => {
       positions.set(id, { x, y });
-      const children = childrenOf(members, id);
+      const children = getChildren(id);
       if (children.length === 0) return;
       
       const childSpacing = spacing / children.length;
@@ -81,16 +139,14 @@ function TreeFlowInner({ members, query, onAction }: TreeFlowProps) {
       placeNodes(root.id, rootX, 50, 350);
     });
 
-    // إنشاء العقد
     members.forEach((member) => {
       const pos = positions.get(member.id);
       if (!pos) return;
       
       const gen = getGen(member.id);
       const color = GEN_COLORS[gen % GEN_COLORS.length];
-      const children = childrenOf(members, member.id);
+      const children = getChildren(member.id);
       
-      // التحقق من مطابقة البحث
       const matchesQuery = !q || member.name.toLowerCase().includes(q);
       const hasMatchingChild = subtreeHasMatch(member.id, members, q);
       const isVisible = !q || matchesQuery || hasMatchingChild;
@@ -104,31 +160,30 @@ function TreeFlowInner({ members, query, onAction }: TreeFlowProps) {
         data: {
           label: (
             <div 
-              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl shadow-lg hover:shadow-xl transition-all cursor-pointer hover:scale-105"
+              className={`flex items-center justify-center gap-2 rounded-2xl shadow-lg hover:shadow-xl transition-all cursor-pointer hover:scale-105 ${getCardSizeClass(cardSize)}`}
               style={{ 
                 backgroundColor: 'white',
                 border: `3px solid ${color}`,
-                minWidth: '90px',
-                maxWidth: '180px',
+                maxWidth: '200px',
               }}
               onClick={() => onAction(member, 'addSon')}
               onDoubleClick={() => onAction(member, 'edit')}
             >
               {/* الصورة الرمزية */}
               <div 
-                className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+                className={`flex items-center justify-center rounded-full text-white font-bold shrink-0 ${getAvatarClass(cardSize)}`}
                 style={{ backgroundColor: color }}
               >
                 {member.name.charAt(0)}
               </div>
               
-              {/* النص في المنتصف */}
+              {/* النص */}
               <div className="text-center min-w-0 flex-1">
-                <div className="text-sm font-bold text-slate-800 truncate">
+                <div className={`font-bold text-slate-800 truncate ${getCardSizeClass(cardSize)}`}>
                   {member.name}
                 </div>
                 {member.notes && (
-                  <div className="text-[9px] text-slate-400 truncate max-w-[100px] mx-auto">
+                  <div className={`text-slate-400 truncate max-w-[100px] mx-auto ${getNotesClass(cardSize)}`}>
                     {member.notes}
                   </div>
                 )}
@@ -137,7 +192,7 @@ function TreeFlowInner({ members, query, onAction }: TreeFlowProps) {
               {/* عدد الأبناء */}
               {children.length > 0 && (
                 <div 
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white shrink-0"
+                  className={`rounded-full text-white shrink-0 ${getBadgeClass(cardSize)}`}
                   style={{ backgroundColor: color }}
                 >
                   {children.length}
@@ -157,7 +212,7 @@ function TreeFlowInner({ members, query, onAction }: TreeFlowProps) {
     });
 
     return result;
-  }, [members, onAction, q]);
+  }, [members, onAction, q, cardSize]);
 
   // بناء الحواف (الخطوط)
   const edges: Edge[] = useMemo(() => {
@@ -226,7 +281,7 @@ function TreeFlowInner({ members, query, onAction }: TreeFlowProps) {
       >
         <Background color="#f1f5f9" gap={20} size={0.5} />
         
-        {/* أزرار التحكم المخصصة */}
+        {/* أزرار التحكم */}
         <Panel position="bottom-right" className="flex flex-col gap-2">
           <button
             onClick={handleZoomIn}
@@ -263,22 +318,7 @@ function TreeFlowInner({ members, query, onAction }: TreeFlowProps) {
   );
 }
 
-// دالة مساعدة للبحث
-function subtreeHasMatch(rootId: string, members: Member[], q: string): boolean {
-  if (!q) return true;
-  const stack = [rootId];
-  while (stack.length) {
-    const cur = stack.pop()!;
-    const node = members.find((m) => m.id === cur);
-    if (node && node.name.toLowerCase().includes(q)) return true;
-    members
-      .filter((m) => m.father_id === cur)
-      .forEach((m) => stack.push(m.id));
-  }
-  return false;
-}
-
-// المكون الرئيسي مع ReactFlowProvider
+// المكون الرئيسي
 export function TreeFlow(props: TreeFlowProps) {
   return (
     <ReactFlowProvider>
