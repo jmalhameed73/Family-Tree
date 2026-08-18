@@ -7,7 +7,9 @@ interface UseNeonReturn {
   loading: boolean;
   error: string | null;
   addMember: (name: string, notes: string, fatherId: string | null) => Promise<void>;
-  updateMember: (id: string, name: string, notes: string) => Promise<void>;
+  addFather: (name: string, notes: string) => Promise<string>;
+  updateMember: (id: string, name: string, notes: string, fatherId?: string | null) => Promise<void>;
+  updateFather: (memberId: string, fatherId: string) => Promise<void>;
   deleteMember: (id: string) => Promise<void>;
   clearAll: () => Promise<void>;
   importData: (members: Member[]) => Promise<void>;
@@ -50,10 +52,25 @@ export function useNeon(): UseNeonReturn {
     }
   }, [fetchData]);
 
-  // تحديث عضو
-  const updateMember = useCallback(async (id: string, name: string, notes: string) => {
+  // إضافة أب (father_id = null)
+  const addFather = useCallback(async (name: string, notes: string): Promise<string> => {
     try {
-      await neon.updateMember(id, name, notes);
+      const id = neon.createId();
+      const createdAt = Date.now();
+      await neon.addMember(id, name, notes, null, createdAt);
+      await fetchData();
+      return id;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'حدث خطأ في إضافة الأب';
+      setError(errorMessage);
+      throw err;
+    }
+  }, [fetchData]);
+
+  // تحديث عضو (مع إمكانية تحديث father_id)
+  const updateMember = useCallback(async (id: string, name: string, notes: string, fatherId?: string | null) => {
+    try {
+      await neon.updateMember(id, name, notes, fatherId);
       await fetchData();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'حدث خطأ في تحديث العضو';
@@ -61,6 +78,20 @@ export function useNeon(): UseNeonReturn {
       throw err;
     }
   }, [fetchData]);
+
+  // تحديث الأب لعضو موجود
+  const updateFather = useCallback(async (memberId: string, fatherId: string) => {
+    try {
+      const member = members.find(m => m.id === memberId);
+      if (!member) throw new Error('Member not found');
+      await neon.updateMember(memberId, member.name, member.notes, fatherId);
+      await fetchData();
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'حدث خطأ في تحديث الأب';
+      setError(errorMessage);
+      throw err;
+    }
+  }, [members, fetchData]);
 
   // حذف عضو
   const deleteMember = useCallback(async (id: string) => {
@@ -119,7 +150,9 @@ export function useNeon(): UseNeonReturn {
     loading,
     error,
     addMember,
+    addFather,
     updateMember,
+    updateFather,
     deleteMember,
     clearAll,
     importData,

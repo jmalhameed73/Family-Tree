@@ -1,6 +1,6 @@
 import type { Member } from '@/types';
 
-// استخدام API Routes بدلاً من الاتصال المباشر بقاعدة البيانات
+// استخدام API Routes
 const API_URL = '/api/members';
 
 // جلب جميع الأعضاء
@@ -42,15 +42,20 @@ export async function addMember(
   }
 }
 
-// تحديث عضو
-export async function updateMember(id: string, name: string, notes: string): Promise<void> {
+// تحديث عضو (مع إمكانية تحديث father_id)
+export async function updateMember(
+  id: string,
+  name: string,
+  notes: string,
+  father_id?: string | null
+): Promise<void> {
   try {
     const response = await fetch(API_URL, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ id, name, notes }),
+      body: JSON.stringify({ id, name, notes, father_id }),
     });
     if (!response.ok) {
       throw new Error(`Failed to update member: ${response.status}`);
@@ -91,6 +96,30 @@ export async function clearAllMembers(): Promise<void> {
     console.error('Error clearing members:', error);
     throw error;
   }
+}
+
+// استيراد بيانات
+export async function importMembers(members: Member[]): Promise<void> {
+  try {
+    await clearAllMembers();
+    for (const member of members) {
+      await addMember(
+        member.id,
+        member.name,
+        member.notes || '',
+        member.father_id || null,
+        member.created_at
+      );
+    }
+  } catch (error) {
+    console.error('Error importing members:', error);
+    throw error;
+  }
+}
+
+// تصدير بيانات
+export async function exportMembers(): Promise<Member[]> {
+  return await fetchAllMembers();
 }
 
 // إنشاء معرف فريد

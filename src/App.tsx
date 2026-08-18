@@ -16,7 +16,9 @@ function App() {
     loading,
     error,
     addMember,
+    addFather,
     updateMember,
+    updateFather,
     deleteMember,
     clearAll,
     importData,
@@ -65,6 +67,22 @@ function App() {
     [addMember, hasEditPermission]
   );
 
+  const handleAddFather = useCallback(
+    async (name: string, notes: string): Promise<string> => {
+      if (!hasEditPermission) {
+        setShowEditModal(true);
+        throw new Error('No permission');
+      }
+      try {
+        return await addFather(name, notes);
+      } catch (err) {
+        console.error('Error adding father:', err);
+        throw err;
+      }
+    },
+    [addFather, hasEditPermission]
+  );
+
   const handleEdit = useCallback(
     async (id: string, name: string, notes: string) => {
       if (!hasEditPermission) {
@@ -78,6 +96,21 @@ function App() {
       }
     },
     [updateMember, hasEditPermission]
+  );
+
+  const handleUpdateFather = useCallback(
+    async (memberId: string, fatherId: string) => {
+      if (!hasEditPermission) {
+        setShowEditModal(true);
+        return;
+      }
+      try {
+        await updateFather(memberId, fatherId);
+      } catch (err) {
+        console.error('Error updating father:', err);
+      }
+    },
+    [updateFather, hasEditPermission]
   );
 
   const handleDelete = useCallback(
@@ -371,7 +404,9 @@ function App() {
           members={members}
           onClose={() => setActionMember(null)}
           onAddSon={handleAddSon}
+          onAddFather={handleAddFather}
           onEdit={handleEdit}
+          onUpdateFather={handleUpdateFather}
           onDelete={handleDelete}
         />
       )}

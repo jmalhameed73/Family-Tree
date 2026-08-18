@@ -16,18 +16,22 @@ interface ActionSheetProps {
   members: Member[];
   onClose: () => void;
   onAddSon: (fatherId: string, name: string, notes: string) => Promise<void>;
+  onAddFather: (name: string, notes: string) => Promise<string>;
   onEdit: (id: string, name: string, notes: string) => Promise<void>;
+  onUpdateFather: (memberId: string, fatherId: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
 
-type Mode = 'menu' | 'addSon' | 'edit' | 'confirmDelete';
+type Mode = 'menu' | 'addSon' | 'addFather' | 'edit' | 'confirmDelete';
 
 export function ActionSheet({
   member,
   members,
   onClose,
   onAddSon,
+  onAddFather,
   onEdit,
+  onUpdateFather,
   onDelete,
 }: ActionSheetProps) {
   const [mode, setMode] = useState<Mode>('menu');
@@ -57,6 +61,25 @@ export function ActionSheet({
       onClose();
     } catch {
       setError('حدث خطأ في إضافة الابن');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitAddFather = async () => {
+    if (!sonName.trim()) {
+      setError('الرجاء إدخال اسم الأب');
+      return;
+    }
+    setLoading(true);
+    try {
+      // إنشاء الأب الجديد (father_id = null لأنه جد أكبر)
+      const newFatherId = await onAddFather(sonName.trim(), sonNotes.trim());
+      // تحديث العضو الحالي ليكون ابن الأب الجديد
+      await onUpdateFather(member.id, newFatherId);
+      onClose();
+    } catch {
+      setError('حدث خطأ في إضافة الأب');
     } finally {
       setLoading(false);
     }
@@ -109,11 +132,13 @@ export function ActionSheet({
             <span className="text-[15px] font-bold text-slate-700">
               {mode === 'addSon'
                 ? 'إضافة ابن'
-                : mode === 'edit'
-                  ? 'تعديل الاسم'
-                  : mode === 'confirmDelete'
-                    ? 'تأكيد الحذف'
-                    : 'إجراءات الفرد'}
+                : mode === 'addFather'
+                  ? 'إضافة أب'
+                  : mode === 'edit'
+                    ? 'تعديل الاسم'
+                    : mode === 'confirmDelete'
+                      ? 'تأكيد الحذف'
+                      : 'إجراءات الفرد'}
             </span>
             <div className="w-9" />
           </div>
@@ -148,6 +173,13 @@ export function ActionSheet({
                 >
                   <UserPlus className="h-5 w-5" />
                   إضافة ابن
+                </button>
+                <button
+                  onClick={() => setMode('addFather')}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-emerald-600 px-4 py-3.5 text-[15px] font-bold text-white shadow-md transition active:scale-95"
+                >
+                  <UserPlus className="h-5 w-5" />
+                  إضافة أب
                 </button>
                 <button
                   onClick={() => {
@@ -207,6 +239,60 @@ export function ActionSheet({
                 >
                   <Check className="h-5 w-5" />
                   {loading ? 'جاري الإضافة...' : 'إضافة'}
+                </button>
+                <button
+                  onClick={() => {
+                    setMode('menu');
+                    setSonName('');
+                    setSonNotes('');
+                    setError('');
+                  }}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white py-3.5 text-[14px] font-bold text-slate-600 active:scale-95"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ADD FATHER */}
+          {mode === 'addFather' && (
+            <div className="mt-3 space-y-3.5">
+              <div className="rounded-xl bg-emerald-50 px-3 py-2 text-[13px] text-emerald-700">
+                إضافة أب جديد لـ: <span className="font-bold">{member.name}</span>
+                <br />
+                <span className="text-[11px] text-emerald-600">سيصبح {member.name} ابناً لهذا الشخص</span>
+              </div>
+              <div>
+                <label className={labelClass}>اسم الأب *</label>
+                <input
+                  className={fieldClass}
+                  value={sonName}
+                  onChange={(e) => setSonName(e.target.value)}
+                  placeholder="اسم الأب"
+                  autoFocus
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>ملاحظات (اختياري)</label>
+                <textarea
+                  className={`${fieldClass} min-h-[70px] resize-none`}
+                  value={sonNotes}
+                  onChange={(e) => setSonNotes(e.target.value)}
+                  placeholder="نبذة مختصرة..."
+                  disabled={loading}
+                />
+              </div>
+              {error && <p className="text-[13px] font-semibold text-red-600">{error}</p>}
+              <div className="flex gap-2.5">
+                <button
+                  onClick={submitAddFather}
+                  disabled={loading}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-[14px] font-bold text-white active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                >
+                  <Check className="h-5 w-5" />
+                  {loading ? 'جاري الإضافة...' : 'إضافة الأب'}
                 </button>
                 <button
                   onClick={() => {
