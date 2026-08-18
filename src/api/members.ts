@@ -1,18 +1,22 @@
 import { neon } from '@neondatabase/serverless';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+// استخدام متغير البيئة من Vercel
 const sql = neon(process.env.DATABASE_URL!);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // إعدادات CORS للسماح بالطلبات من المتصفح
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+  // استجابة مبدئية لطلبات OPTIONS (تستخدمها المتصفحات للتحقق من الصلاحيات)
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   try {
+    // جلب جميع الأعضاء
     if (req.method === 'GET') {
       const members = await sql`
         SELECT id, name, notes, father_id, created_at
@@ -22,6 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(members);
     }
 
+    // إضافة عضو جديد
     if (req.method === 'POST') {
       const { id, name, notes, father_id, created_at } = req.body;
       await sql`
@@ -31,6 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(201).json({ success: true });
     }
 
+    // تحديث عضو
     if (req.method === 'PUT') {
       const { id, name, notes } = req.body;
       await sql`
@@ -41,6 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true });
     }
 
+    // حذف عضو
     if (req.method === 'DELETE') {
       const { id } = req.body;
       await sql`
@@ -49,6 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true });
     }
 
+    // إذا كانت الطريقة غير مدعومة
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error('API Error:', error);
