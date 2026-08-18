@@ -1,11 +1,9 @@
 import { neon } from '@neondatabase/serverless';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// استخدام متغير البيئة من Vercel (بدون VITE_)
 const sql = neon(process.env.DATABASE_URL!);
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -15,7 +13,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // GET - جلب الأعضاء
     if (req.method === 'GET') {
       const members = await sql`
         SELECT id, name, notes, father_id, created_at
@@ -25,7 +22,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(members);
     }
 
-    // POST - إضافة عضو
     if (req.method === 'POST') {
       const { id, name, notes, father_id, created_at } = req.body;
       await sql`
@@ -35,7 +31,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(201).json({ success: true });
     }
 
-    // PUT - تحديث
     if (req.method === 'PUT') {
       const { id, name, notes } = req.body;
       await sql`
@@ -46,7 +41,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true });
     }
 
-    // DELETE - حذف
     if (req.method === 'DELETE') {
       const { id } = req.body;
       await sql`

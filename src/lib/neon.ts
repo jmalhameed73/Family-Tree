@@ -1,63 +1,99 @@
-import { neon } from '@neondatabase/serverless';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { Member } from '@/types';
 
-// استخدام متغير البيئة من Vercel (بدون VITE_)
-const sql = neon(process.env.DATABASE_URL!);
+// استخدام API Routes بدلاً من الاتصال المباشر بقاعدة البيانات
+const API_URL = '/api/members';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
+// جلب جميع الأعضاء
+export async function fetchAllMembers(): Promise<Member[]> {
   try {
-    // GET - جلب الأعضاء
-    if (req.method === 'GET') {
-      const members = await sql`
-        SELECT id, name, notes, father_id, created_at
-        FROM members
-        ORDER BY created_at ASC
-      `;
-      return res.status(200).json(members);
+    const response = await fetch(API_URL);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch members: ${response.status}`);
     }
-
-    // POST - إضافة عضو
-    if (req.method === 'POST') {
-      const { id, name, notes, father_id, created_at } = req.body;
-      await sql`
-        INSERT INTO members (id, name, notes, father_id, created_at)
-        VALUES (${id}, ${name}, ${notes}, ${father_id}, ${created_at})
-      `;
-      return res.status(201).json({ success: true });
-    }
-
-    // PUT - تحديث
-    if (req.method === 'PUT') {
-      const { id, name, notes } = req.body;
-      await sql`
-        UPDATE members
-        SET name = ${name}, notes = ${notes}
-        WHERE id = ${id}
-      `;
-      return res.status(200).json({ success: true });
-    }
-
-    // DELETE - حذف
-    if (req.method === 'DELETE') {
-      const { id } = req.body;
-      await sql`
-        DELETE FROM members WHERE id = ${id}
-      `;
-      return res.status(200).json({ success: true });
-    }
-
-    return res.status(405).json({ error: 'Method not allowed' });
+    return await response.json();
   } catch (error) {
-    console.error('API Error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error fetching members:', error);
+    throw error;
   }
+}
+
+// إضافة عضو جديد
+export async function addMember(
+  id: string,
+  name: string,
+  notes: string,
+  father_id: string | null,
+  created_at: number
+): Promise<void> {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id, name, notes, father_id, created_at }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to add member: ${response.status}`);
+    }
+  } catch (error) {
+    console.error('Error adding member:', error);
+    throw error;
+  }
+}
+
+// تحديث عضو
+export async function updateMember(id: string, name: string, notes: string): Promise<void> {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id, name, notes }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to update member: ${response.status}`);
+    }
+  } catch (error) {
+    console.error('Error updating member:', error);
+    throw error;
+  }
+}
+
+// حذف عضو
+export async function deleteMember(id: string): Promise<void> {
+  try {
+    const response = await fetch(API_URL, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to delete member: ${response.status}`);
+    }
+  } catch (error) {
+    console.error('Error deleting member:', error);
+    throw error;
+  }
+}
+
+// حذف جميع الأعضاء
+export async function clearAllMembers(): Promise<void> {
+  try {
+    const members = await fetchAllMembers();
+    for (const member of members) {
+      await deleteMember(member.id);
+    }
+  } catch (error) {
+    console.error('Error clearing members:', error);
+    throw error;
+  }
+}
+
+// إنشاء معرف فريد
+export function createId(): string {
+  return `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
